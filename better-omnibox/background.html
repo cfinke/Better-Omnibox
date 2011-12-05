@@ -84,7 +84,7 @@ function handleInput(text, suggest) {
 				sortableScores.sort(scoreSorter);
 				
 				var suggestions = [];
-				console.log(descriptions);
+				
 				for (var i = 0, _len = Math.min(10, sortableScores.length); i < _len; i++) {
 					var item = sortableScores[i];
 					suggestions.push({ "content": item[0] + "\t" + text, "description": ("<url>" + item[0] + "</url> <dim>" + descriptions[item[0]].replace(/&/g, "&amp;") + "</dim> (" + item[1] + ")").replace(/&/g, "&amp;") });
@@ -119,7 +119,6 @@ function minisearchScore(itemText, query) {
 		}
 	}
 	
-	console.log(score);
 	return score;
 }
 
