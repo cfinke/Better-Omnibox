@@ -1,0 +1,3 @@
+Better Omnibox improves the relevance of Chrome's Omnibox results. Type "#", hit space, and then use the Omnibox as usual.
+
+Better Omnibox uses a combination of bookmark search and history search, gives precedence to pages whose titles and URLs match the search query, and factors in the amount of time since the page was last visited.  Each time you use Better Omnibox and select one of its results, that result will rank higher for future identical queries.
