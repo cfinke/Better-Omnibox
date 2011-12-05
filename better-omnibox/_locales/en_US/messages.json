@@ -1,0 +1,11 @@
+{
+	"extName": {
+		"message": "Better Omnibox"
+	},
+	"extDescription": {
+		"message": "Better Omnibox improves the relevance of Chrome's Omnibox results."
+	},
+	"googleSearch": {
+		"message": "Google Search"
+	}
+}

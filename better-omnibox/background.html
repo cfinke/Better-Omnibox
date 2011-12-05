@@ -1,0 +1,158 @@
+<script>
+
+chrome.omnibox.setDefaultSuggestion({ "description" : "%s - <dim>" + chrome.i18n.getMessage("googleSearch") + "</dim>" });
+
+chrome.omnibox.onInputChanged.addListener(handleInput);
+
+chrome.omnibox.onInputEntered.addListener(handleInput);
+
+function handleInput(text, suggest) {
+	text = text.replace(/^\s+|\s+$/g, "");
+	
+	var input = text;
+	
+	if (typeof suggest == 'undefined') {
+		// The command has been executed. Send the user somewhere.
+		var commandParts = text.split("\t");
+		
+		if (commandParts.length == 1) {
+			// It's either a URL or a search query.
+			chrome.tabs.getSelected(null, function (tab) {
+				if (commandParts[0].indexOf(" ") == -1 && (commandParts[0].indexOf(".") != -1 || commandParts[0].indexOf(":") > 0)) {
+					// URL.
+					if (commandParts[0].indexOf(":") > 0) {
+						chrome.tabs.update(tab.id, { url : commandParts[0] });
+					}
+					else {
+						chrome.tabs.update(tab.id, { url : "http://" + commandParts[0] });
+					}
+				}
+				else {
+					// Search query.
+					chrome.tabs.update(tab.id, { url : "https://www.google.com/search?q=" + encodeURIComponent(commandParts[0]) });
+				}
+			});
+		}
+		else {
+			// User selected a URL from the suggestion list.
+			chrome.tabs.create({ "url" : commandParts[0] });
+			logSelection(commandParts[0], commandParts[1]);
+		}
+	}
+	else {
+		if (text.indexOf(" ") == -1 && (text.indexOf(".") != -1 || text.indexOf(":") > 0)) {
+			chrome.omnibox.setDefaultSuggestion({ "description" : "<url>%s</url>" });
+		}
+		else {
+			// Search query.
+			chrome.omnibox.setDefaultSuggestion({ "description" : "%s - <dim>" + chrome.i18n.getMessage("googleSearch") + "</dim>" });
+		}
+		
+		chrome.bookmarks.search(text, function (bookmarks) {
+			var scores = {};
+			var descriptions = {};
+			
+			for (var i = 0, _len = bookmarks.length; i < _len; i++) {
+				var item = bookmarks[i];
+				
+				if (!(item.url in scores)) {
+					scores[item.url] = minisearchScore(item.url + " " + item.title, text) + previousSelections(item.url, text);
+					descriptions[item.url] = item.title;
+				}
+				
+				scores[item.url] += 1;
+			}
+			
+			chrome.history.search({ text : text }, function (historyItems) {
+				for (var i = 0, _len = historyItems.length; i < _len; i++) {
+					var item = historyItems[i];
+					
+					if (!(item.url in scores)) {
+						scores[item.url] = minisearchScore(item.url + " " + item.title, text) + previousSelections(item.url, text);
+						descriptions[item.url] = item.title;
+					}
+					
+					scores[item.url] += 1;
+				}
+				
+				var sortableScores = [];
+				
+				for (var i in scores) {
+					sortableScores.push([ i, scores[i] ]);
+				}
+				
+				sortableScores.sort(scoreSorter);
+				
+				var suggestions = [];
+				console.log(descriptions);
+				for (var i = 0, _len = Math.min(10, sortableScores.length); i < _len; i++) {
+					var item = sortableScores[i];
+					suggestions.push({ "content": item[0] + "\t" + text, "description": ("<url>" + item[0] + "</url> <dim>" + descriptions[item[0]].replace(/&/g, "&amp;") + "</dim> (" + item[1] + ")").replace(/&/g, "&amp;") });
+				}
+				
+				suggest(suggestions);
+			});
+		});
+	}
+}
+
+function scoreSorter(a, b) {
+	return b[1] - a[1];
+}
+
+/**
+ * Chrome does some sort of page text search; that's usually awful.
+ * Raise the score of results that have the search query in the URL
+ * or title.
+ */
+function minisearchScore(itemText, query) {
+	var queryParts = query.split(" ");
+
+	var scorePortion = 1 / queryParts.length;
+	var score = 0;
+	
+	for (var i = 0, _len = queryParts.length; i < _len; i++) {
+		var queryPart = queryParts[i];
+		
+		if (itemText.indexOf(queryPart) !== -1) {
+			score += scorePortion;
+		}
+	}
+	
+	console.log(score);
+	return score;
+}
+
+/**
+ * Raise the score of items that have previously been selected for 
+ * this query.
+ */
+function previousSelections(url, query) {
+	var storageKey = "selected:"+query+":"+url;
+	var previousSelections = localStorage[storageKey];
+	
+	if (previousSelections) {
+		return parseInt(previousSelections, 10);
+	}
+	else {
+		return 0;
+	}
+}
+
+function logSelection(url, query) {
+	chrome.tabs.getSelected(null, function (tab) {
+		if (!tab.incognito) {
+			var storageKey = "selected:"+query+":"+url;
+			var previousSelections = localStorage[storageKey];
+	
+			if (previousSelections) {
+				localStorage[storageKey] = parseInt(previousSelections, 10) + 1;
+			}
+			else {
+				localStorage[storageKey] = 1;
+			}
+		}
+	});
+}
+
+</script>
