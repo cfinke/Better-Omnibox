@@ -48,6 +48,8 @@ function handleInput(text, suggest) {
 			chrome.omnibox.setDefaultSuggestion({ "description" : "%s - <dim>" + chrome.i18n.getMessage("googleSearch") + "</dim>" });
 		}
 		
+		var now = (new Date()).getTime();
+		
 		chrome.bookmarks.search(text, function (bookmarks) {
 			var scores = {};
 			var descriptions = {};
@@ -56,7 +58,7 @@ function handleInput(text, suggest) {
 				var item = bookmarks[i];
 				
 				if (!(item.url in scores)) {
-					scores[item.url] = minisearchScore(item.url + " " + item.title, text) + previousSelections(item.url, text);
+					scores[item.url] = minisearchScore(item.url + " " + item.title, text) + previousSelections(item.url, text) + recencyScore(now, item.dateAdded);
 					descriptions[item.url] = item.title;
 				}
 				
@@ -68,11 +70,11 @@ function handleInput(text, suggest) {
 					var item = historyItems[i];
 					
 					if (!(item.url in scores)) {
-						scores[item.url] = minisearchScore(item.url + " " + item.title, text) + previousSelections(item.url, text);
+						scores[item.url] = minisearchScore(item.url + " " + item.title, text) + previousSelections(item.url, text) + recencyScore(now, item.visitTime);
 						descriptions[item.url] = item.title;
 					}
 					
-					scores[item.url] += 1;
+					scores[item.url] += historyScore(item);
 				}
 				
 				var sortableScores = [];
@@ -87,6 +89,11 @@ function handleInput(text, suggest) {
 				
 				for (var i = 0, _len = Math.min(10, sortableScores.length); i < _len; i++) {
 					var item = sortableScores[i];
+					
+					if (item[1] <= 0) {
+						break;
+					}
+					
 					suggestions.push({ "content": item[0] + "\t" + text, "description": ("<url>" + item[0] + "</url> <dim>" + descriptions[item[0]].replace(/&/g, "&amp;") + "</dim> (" + item[1] + ")").replace(/&/g, "&amp;") });
 				}
 				
@@ -119,7 +126,12 @@ function minisearchScore(itemText, query) {
 		}
 	}
 	
-	return score;
+	if (score == 0) {
+		return -100;
+	}
+	else {
+		return score;
+	}
 }
 
 /**
@@ -135,6 +147,66 @@ function previousSelections(url, query) {
 	}
 	else {
 		return 0;
+	}
+}
+
+/**
+ * Give more weight to recent items.
+ */
+function recencyScore(now, then) {
+	if (!then) {
+		// Unknown
+		return 0;
+	}
+	
+	var days = (now - then) / 1000 / 60 / 60 / 24;
+	
+	if (days <= 1) {
+		return 2;
+	}
+	
+	if (days <= 7) {
+		return 1.5;
+	}
+	
+	if (days <= 30) {
+		return 1;
+	}
+	
+	if (days <= 180) {
+		return .5;
+	}
+	
+	return 0;
+}
+
+/**
+ * Some types of history entries are more important than others.
+ */
+function historyScore(item) {
+	switch (item.transition) {
+		case "typed":
+			return 2;
+		break;
+		case "reload":
+		case "keyword":
+		case "keyword_generated":
+		case "start_page":
+			return 1.5;
+		break;
+		case "link":
+		case "auto_bookmark":
+		case "form_submit":
+			return 1;
+		break;
+		case "generated":
+			return 0.5;
+		break;
+		case "auto_subframe":
+		case "manual_subframe":
+		default:
+			return 0;
+		break;
 	}
 }
 
