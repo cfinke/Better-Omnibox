@@ -1,7 +1,7 @@
 {
 	"name": "__MSG_extName__",
 	"description": "__MSG_extDescription__",
-	"version": "2",
+	"version": "4",
 	"homepage_url": "https://chrome.google.com/webstore/detail/cflfhhdnpaclcdphcabflnhieohdmjop",
 	"omnibox": {
 		"keyword": "#"
